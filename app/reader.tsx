@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import Animated from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useAnimatedRef } from 'react-native-reanimated';
@@ -19,18 +20,21 @@ export default function ReaderScreen() {
   const { startTracking, stopTracking } = useReadingStats();
   const item = getItem(Number(id));
 
-  useEffect(() => {
-    startTracking();
-    return () => stopTracking();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      startTracking();
+      return () => stopTracking();
+    }, [startTracking, stopTracking])
+  );
 
-  const { spotlightY, spotlightHeight, panGesture } = useSpotlight(
+  const { spotlightY, spotlightHeight, panGesture, tapGesture } = useSpotlight(
     settings.focusHeight
   );
 
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const nativeGesture = Gesture.Native().withRef(scrollRef);
-  const composed = Gesture.Simultaneous(panGesture, nativeGesture);
+  const spotlightGesture = Gesture.Exclusive(panGesture, tapGesture);
+  const composed = Gesture.Simultaneous(spotlightGesture, nativeGesture);
 
   const paragraphs = item?.content.split('\n\n') ?? [];
 
@@ -54,7 +58,7 @@ export default function ReaderScreen() {
                 key={i}
                 style={[
                   styles.paragraph,
-                  { color: colors.text },
+                  { color: colors.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * 1.8 },
                 ]}
               >
                 {p}

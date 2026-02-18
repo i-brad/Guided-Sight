@@ -5,9 +5,10 @@ import { LibraryItem } from '@/types';
 interface DocCardProps {
   item: LibraryItem;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
-export function DocCard({ item, onPress }: DocCardProps) {
+export function DocCard({ item, onPress, onLongPress }: DocCardProps) {
   const { colors } = useTheme();
 
   return (
@@ -23,8 +24,9 @@ export function DocCard({ item, onPress }: DocCardProps) {
         },
       ]}
       onPress={onPress}
+      onLongPress={onLongPress}
     >
-      <Text style={styles.typeTag}>{item.type}</Text>
+      <Text style={[styles.typeTag, { color: colors.mutedText }]}>{item.type}</Text>
       <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
         {item.title}
       </Text>
@@ -43,7 +45,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    color: 'rgba(128,128,128,0.5)',
     marginBottom: 8,
   },
   title: {

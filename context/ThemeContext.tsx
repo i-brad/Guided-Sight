@@ -9,8 +9,10 @@ const defaultSettings: Settings = {
   theme: 'zen',
   overlayOpacity: 98,
   focusHeight: 80,
+  fontSize: 19,
   onboardingComplete: false,
   reminder: { enabled: false, hour: 20, minute: 0 },
+  openaiApiKey: '',
 };
 
 interface ThemeContextValue {
@@ -20,8 +22,10 @@ interface ThemeContextValue {
   setTheme: (name: ThemeName) => void;
   setOverlayOpacity: (val: number) => void;
   setFocusHeight: (val: number) => void;
+  setFontSize: (val: number) => void;
   setOnboardingComplete: (val: boolean) => void;
   setReminder: (val: ReminderSettings) => void;
+  setOpenaiApiKey: (key: string) => void;
   saveSettings: () => Promise<void>;
 }
 
@@ -61,11 +65,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setFocusHeight = (val: number) =>
     setSettings((prev) => ({ ...prev, focusHeight: val }));
 
+  const setFontSize = (val: number) =>
+    setSettings((prev) => ({ ...prev, fontSize: val }));
+
   const setOnboardingComplete = (val: boolean) =>
     setSettings((prev) => ({ ...prev, onboardingComplete: val }));
 
   const setReminder = (val: ReminderSettings) =>
     setSettings((prev) => ({ ...prev, reminder: val }));
+
+  const setOpenaiApiKey = (key: string) =>
+    setSettings((prev) => ({ ...prev, openaiApiKey: key }));
 
   // Auto-save whenever settings change after initial load
   useEffect(() => {
@@ -83,8 +93,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setTheme,
         setOverlayOpacity,
         setFocusHeight,
+        setFontSize,
         setOnboardingComplete,
         setReminder,
+        setOpenaiApiKey,
         saveSettings,
       }}
     >

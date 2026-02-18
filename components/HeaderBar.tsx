@@ -1,7 +1,7 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 
 interface HeaderBarProps {
@@ -21,12 +21,11 @@ export function HeaderBar({
 }: HeaderBarProps) {
   const router = useRouter();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <LinearGradient
-      colors={[colors.background, 'transparent']}
-      locations={[0.6, 1]}
-      style={styles.container}
+    <View
+      style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}
     >
       {showBack ? (
         <Pressable
@@ -34,13 +33,13 @@ export function HeaderBar({
           onPress={onBack ?? (() => router.back())}
           hitSlop={12}
         >
-          <Ionicons name="chevron-back" size={22} color="rgba(128,128,128,0.4)" />
+          <Ionicons name="chevron-back" size={22} color={colors.mutedText} />
         </Pressable>
       ) : (
         <View style={styles.leftBtn} />
       )}
 
-      <Text style={[styles.title, { color: 'rgba(128,128,128,0.6)' }]} numberOfLines={1}>
+      <Text style={[styles.title, { color: colors.mutedText }]} numberOfLines={1}>
         {title}
       </Text>
 
@@ -50,7 +49,7 @@ export function HeaderBar({
             onPress={() => router.push('/analytics')}
             hitSlop={12}
           >
-            <Ionicons name="bar-chart-outline" size={18} color="rgba(128,128,128,0.4)" />
+            <Ionicons name="bar-chart-outline" size={18} color={colors.mutedText} />
           </Pressable>
         )}
         {showSettings && (
@@ -58,11 +57,11 @@ export function HeaderBar({
             onPress={() => router.push('/settings')}
             hitSlop={12}
           >
-            <Ionicons name="settings-outline" size={20} color="rgba(128,128,128,0.4)" />
+            <Ionicons name="settings-outline" size={20} color={colors.mutedText} />
           </Pressable>
         )}
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -72,12 +71,11 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 100,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingBottom: 12,
     zIndex: 100,
   },
   leftBtn: {

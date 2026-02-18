@@ -1,4 +1,4 @@
-export type ThemeName = 'zen' | 'paper' | 'midnight';
+export type ThemeName = 'zen' | 'paper' | 'midnight' | 'slate' | 'crimson' | 'ocean' | 'forest' | 'amber';
 
 export interface ThemeColors {
   background: string;
@@ -21,13 +21,15 @@ export interface Settings {
   theme: ThemeName;
   overlayOpacity: number;
   focusHeight: number;
+  fontSize: number;
   onboardingComplete: boolean;
   reminder: ReminderSettings;
+  openaiApiKey: string;
 }
 
 export interface LibraryItem {
   id: number;
-  type: 'TEXT' | 'LINK' | 'PDF';
+  type: 'TEXT' | 'LINK' | 'PDF' | 'DOCX';
   title: string;
   content: string;
 }

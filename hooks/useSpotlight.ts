@@ -1,10 +1,9 @@
-import { useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { Gesture } from 'react-native-gesture-handler';
-import { Dimensions } from 'react-native';
 
 export function useSpotlight(initialHeight: number = 80) {
-  const screenHeight = Dimensions.get('window').height;
-  const spotlightY = useSharedValue(screenHeight / 2);
+  const contentTop = 120;
+  const spotlightY = useSharedValue(contentTop + initialHeight / 2);
   const spotlightHeight = useSharedValue(initialHeight);
 
   const panGesture = Gesture.Pan()
@@ -16,7 +15,13 @@ export function useSpotlight(initialHeight: number = 80) {
       'worklet';
       spotlightY.value = event.absoluteY;
     })
-    .minDistance(0);
+    .minDistance(5);
 
-  return { spotlightY, spotlightHeight, panGesture };
+  const tapGesture = Gesture.Tap()
+    .onEnd((event) => {
+      'worklet';
+      spotlightY.value = withTiming(event.absoluteY, { duration: 200 });
+    });
+
+  return { spotlightY, spotlightHeight, panGesture, tapGesture };
 }

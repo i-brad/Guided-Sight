@@ -1,4 +1,5 @@
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,16 +15,22 @@ function formatTime(hour: number, minute: number) {
   return `${displayHour}:${displayMinute} ${period}`;
 }
 
-const themeOptions: { name: ThemeName; label: string }[] = [
-  { name: 'zen', label: 'Zen' },
-  { name: 'paper', label: 'Paper' },
-  { name: 'midnight', label: 'Midnight' },
+const themeOptions: { name: ThemeName; label: string; swatch: string }[] = [
+  { name: 'zen', label: 'Zen', swatch: '#121212' },
+  { name: 'paper', label: 'Paper', swatch: '#f5f5f0' },
+  { name: 'midnight', label: 'Midnight', swatch: '#000000' },
+  { name: 'slate', label: 'Slate', swatch: '#2b2d30' },
+  { name: 'crimson', label: 'Crimson', swatch: '#1a0a0a' },
+  { name: 'ocean', label: 'Ocean', swatch: '#0a1520' },
+  { name: 'forest', label: 'Forest', swatch: '#0a140a' },
+  { name: 'amber', label: 'Amber', swatch: '#181208' },
 ];
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { settings, colors, setTheme, setOverlayOpacity, setFocusHeight } =
+  const { settings, colors, setTheme, setOverlayOpacity, setFocusHeight, setOpenaiApiKey } =
     useTheme();
+  const [keyVisible, setKeyVisible] = useState(false);
   const { todaySeconds } = useReadingStats();
 
   return (
@@ -35,73 +42,85 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.heading, { color: colors.text }]}>Settings</Text>
-        <Text style={styles.subtitle}>Customize your reading experience</Text>
+        <Text style={[styles.subtitle, { color: colors.mutedText }]}>Customize your reading experience</Text>
 
         {/* Theme Selector */}
-        <View style={[styles.group, { borderColor: colors.cardBorder }]}>
-          <Text style={styles.groupLabel}>Reading Theme</Text>
-          <View style={styles.themeRow}>
-            {themeOptions.map((opt) => (
-              <Pressable
-                key={opt.name}
-                style={[
-                  styles.themeBtn,
-                  {
-                    borderColor:
-                      settings.theme === opt.name
-                        ? colors.text
-                        : 'rgba(128,128,128,0.2)',
-                    backgroundColor:
-                      settings.theme === opt.name
-                        ? 'rgba(128,128,128,0.1)'
-                        : 'transparent',
-                  },
-                ]}
-                onPress={() => setTheme(opt.name)}
-              >
-                <Text
+        <View style={[styles.group, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
+          <Text style={[styles.groupLabel, { color: colors.mutedText }]}>Reading Theme</Text>
+          <View style={styles.themeGrid}>
+            {themeOptions.map((opt) => {
+              const isActive = settings.theme === opt.name;
+              return (
+                <Pressable
+                  key={opt.name}
                   style={[
-                    styles.themeBtnText,
+                    styles.themeBtn,
                     {
-                      color: colors.text,
-                      fontWeight: settings.theme === opt.name ? '600' : '400',
+                      borderColor: isActive
+                        ? colors.text
+                        : colors.cardBorder,
+                      backgroundColor: isActive
+                        ? colors.cardBackground
+                        : 'transparent',
                     },
                   ]}
+                  onPress={() => setTheme(opt.name)}
                 >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            ))}
+                  <View
+                    style={[
+                      styles.themeSwatch,
+                      {
+                        backgroundColor: opt.swatch,
+                        borderColor: isActive
+                          ? colors.text
+                          : colors.cardBorder,
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.themeBtnText,
+                      {
+                        color: colors.text,
+                        fontWeight: isActive ? '600' : '400',
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
-        {/* Opacity Slider */}
-        <View style={[styles.group, { borderColor: colors.cardBorder }]}>
+        {/* Text Visibility Slider */}
+        <View style={[styles.group, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
           <View style={styles.groupHeader}>
-            <Text style={styles.groupLabel}>Ambient Opacity</Text>
+            <Text style={[styles.groupLabel, { color: colors.mutedText }]}>Text Visibility</Text>
             <Text style={[styles.valueLabel, { color: colors.text }]}>
-              {settings.overlayOpacity}%
+              {100 - settings.overlayOpacity}%
             </Text>
           </View>
           <Slider
-            minimumValue={50}
-            maximumValue={100}
+            minimumValue={0}
+            maximumValue={50}
             step={1}
-            value={settings.overlayOpacity}
-            onValueChange={setOverlayOpacity}
-            minimumTrackTintColor="rgba(128,128,128,0.3)"
-            maximumTrackTintColor="rgba(128,128,128,0.2)"
+            value={100 - settings.overlayOpacity}
+            onValueChange={(val) => setOverlayOpacity(100 - val)}
+            minimumTrackTintColor={colors.mutedText}
+            maximumTrackTintColor={colors.cardBorder}
             thumbTintColor={colors.text}
           />
-          <Text style={styles.hint}>
-            Controls visibility of non-highlighted text.
+          <Text style={[styles.hint, { color: colors.mutedText }]}>
+            Higher values make non-highlighted text more visible.
           </Text>
         </View>
 
         {/* Focus Height Slider */}
-        <View style={[styles.group, { borderColor: colors.cardBorder }]}>
+        <View style={[styles.group, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
           <View style={styles.groupHeader}>
-            <Text style={styles.groupLabel}>Default Focus Height</Text>
+            <Text style={[styles.groupLabel, { color: colors.mutedText }]}>Default Focus Height</Text>
             <Text style={[styles.valueLabel, { color: colors.text }]}>
               {settings.focusHeight}px
             </Text>
@@ -112,11 +131,11 @@ export default function SettingsScreen() {
             step={1}
             value={settings.focusHeight}
             onValueChange={setFocusHeight}
-            minimumTrackTintColor="rgba(128,128,128,0.3)"
-            maximumTrackTintColor="rgba(128,128,128,0.2)"
+            minimumTrackTintColor={colors.mutedText}
+            maximumTrackTintColor={colors.cardBorder}
             thumbTintColor={colors.text}
           />
-          <Text style={styles.hint}>
+          <Text style={[styles.hint, { color: colors.mutedText }]}>
             The starting height of the focus tunnel.
           </Text>
         </View>
@@ -127,6 +146,7 @@ export default function SettingsScreen() {
             styles.group,
             {
               borderColor: colors.cardBorder,
+              backgroundColor: colors.cardBackground,
               opacity: pressed ? 0.7 : 1,
             },
           ]}
@@ -134,7 +154,7 @@ export default function SettingsScreen() {
         >
           <View style={styles.reminderRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.groupLabel}>Reading Reminder</Text>
+              <Text style={[styles.groupLabel, { color: colors.mutedText }]}>Reading Reminder</Text>
               <Text style={[styles.reminderStatus, { color: colors.text }]}>
                 {settings.reminder.enabled
                   ? `Daily at ${formatTime(settings.reminder.hour, settings.reminder.minute)}`
@@ -144,7 +164,7 @@ export default function SettingsScreen() {
             <Ionicons
               name="chevron-forward"
               size={18}
-              color="rgba(128,128,128,0.4)"
+              color={colors.mutedText}
             />
           </View>
         </Pressable>
@@ -155,6 +175,7 @@ export default function SettingsScreen() {
             styles.group,
             {
               borderColor: colors.cardBorder,
+              backgroundColor: colors.cardBackground,
               opacity: pressed ? 0.7 : 1,
             },
           ]}
@@ -162,7 +183,7 @@ export default function SettingsScreen() {
         >
           <View style={styles.reminderRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.groupLabel}>Reading Analytics</Text>
+              <Text style={[styles.groupLabel, { color: colors.mutedText }]}>Reading Analytics</Text>
               <Text style={[styles.reminderStatus, { color: colors.text }]}>
                 {todaySeconds > 0
                   ? `${todaySeconds < 60 ? `${todaySeconds}s` : `${Math.floor(todaySeconds / 60)}m`} today`
@@ -172,20 +193,51 @@ export default function SettingsScreen() {
             <Ionicons
               name="chevron-forward"
               size={18}
-              color="rgba(128,128,128,0.4)"
+              color={colors.mutedText}
             />
           </View>
         </Pressable>
+
+        {/* OpenAI API Key */}
+        <View style={[styles.group, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
+          <Text style={[styles.groupLabel, { color: colors.mutedText }]}>OpenAI API Key</Text>
+          <Text style={[styles.hint, { color: colors.mutedText }]}>Required for PDF and URL text extraction</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+            <TextInput
+              style={[styles.apiKeyInput, { color: colors.text, borderBottomColor: colors.cardBorder, flex: 1 }]}
+              placeholder="sk-..."
+              placeholderTextColor={colors.mutedText}
+              value={settings.openaiApiKey}
+              onChangeText={(text) => setOpenaiApiKey(text.trim())}
+              secureTextEntry={!keyVisible}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Pressable onPress={() => setKeyVisible(!keyVisible)}>
+              <Ionicons
+                name={keyVisible ? 'eye-off' : 'eye'}
+                size={20}
+                color={colors.mutedText}
+                style={{ marginLeft: 12 }}
+              />
+            </Pressable>
+          </View>
+          {settings.openaiApiKey ? (
+            <Text style={[styles.hint, { color: 'rgba(90,180,90,0.6)', marginTop: 8 }]}>
+              Key saved
+            </Text>
+          ) : null}
+        </View>
 
         {/* Save Button */}
         <Pressable
           style={({ pressed }) => [
             styles.saveBtn,
-            { transform: [{ scale: pressed ? 0.95 : 1 }] },
+            { backgroundColor: colors.accent, transform: [{ scale: pressed ? 0.95 : 1 }] },
           ]}
           onPress={() => router.back()}
         >
-          <Text style={styles.saveBtnText}>Save</Text>
+          <Text style={[styles.saveBtnText, { color: colors.background }]}>Save</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -213,11 +265,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 2,
-    color: 'rgba(128,128,128,0.4)',
     marginBottom: 32,
   },
   group: {
-    backgroundColor: 'rgba(128,128,128,0.05)',
     borderWidth: 1,
     borderRadius: 16,
     padding: 20,
@@ -233,7 +283,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 2,
-    color: 'rgba(128,128,128,0.3)',
     marginBottom: 16,
   },
   valueLabel: {
@@ -242,22 +291,29 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 10,
-    color: 'rgba(128,128,128,0.2)',
     marginTop: 8,
   },
-  themeRow: {
+  themeGrid: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 10,
   },
   themeBtn: {
-    flex: 1,
+    width: '22%',
     borderWidth: 1,
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
+    gap: 6,
+  },
+  themeSwatch: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   themeBtnText: {
-    fontSize: 11,
+    fontSize: 9,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -280,5 +336,10 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: '500',
     fontSize: 14,
+  },
+  apiKeyInput: {
+    fontSize: 14,
+    borderBottomWidth: 1,
+    paddingVertical: 8,
   },
 });

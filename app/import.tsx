@@ -11,73 +11,153 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { extractText } from 'expo-pdf-text-extract';
+import { File as ExpoFile } from 'expo-file-system';
 import { useTheme } from '@/context/ThemeContext';
+import { extractTextFromDocument, extractTextFromUrl } from '@/services/openai';
 import { useLibrary } from '@/context/LibraryContext';
 import { HeaderBar } from '@/components/HeaderBar';
 import { Toast } from '@/components/Toast';
 
+type ImportTab = 'paste' | 'url' | 'file';
+
 export default function ImportScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, settings } = useTheme();
   const { addItem } = useLibrary();
+  const [activeTab, setActiveTab] = useState<ImportTab>('paste');
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
+  const [docFile, setDocFile] = useState<{ name: string; uri: string; mimeType: string } | null>(null);
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(false);
 
   const showToast = (msg: string) => setToast(msg);
 
-  const handlePdfUpload = async () => {
+  const handlePickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
+        type: [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
       });
       if (!result.canceled && result.assets[0]) {
         const file = result.assets[0];
-        setLoading(true);
-        showToast('Extracting text...');
-
-        try {
-          const extractedText = await extractText(file.uri);
-
-          if (!extractedText.trim()) {
-            showToast('No text found in PDF');
-            setLoading(false);
-            return;
-          }
-
-          const newId = addItem({
-            type: 'PDF',
-            title: file.name.replace('.pdf', ''),
-            content: extractedText.trim(),
-          });
-          setLoading(false);
-          router.replace(`/reader?id=${newId}`);
-        } catch {
-          setLoading(false);
-          showToast('Failed to extract text from PDF');
-        }
+        setDocFile({ name: file.name, uri: file.uri, mimeType: file.mimeType || '' });
       }
     } catch {
-      setLoading(false);
       showToast('Failed to select file');
     }
   };
 
-  const handleSaveAndRead = () => {
-    if (!text.trim()) {
-      showToast('Enter some text');
+  const handleSaveAndRead = async () => {
+    if (loading) return;
+
+    if (activeTab === 'paste') {
+      if (!text.trim()) {
+        showToast('Enter some text');
+        return;
+      }
+      const newId = addItem({
+        type: 'TEXT',
+        title: title.trim() || 'Untitled Import',
+        content: text.trim(),
+      });
+      router.replace(`/reader?id=${newId}`);
       return;
     }
-    const newId = addItem({
-      type: 'TEXT',
-      title: title.trim() || 'Untitled Import',
-      content: text.trim(),
-    });
-    router.replace(`/reader?id=${newId}`);
+
+    if (!settings.openaiApiKey) {
+      showToast('Add your OpenAI API key in Settings first');
+      return;
+    }
+
+    if (activeTab === 'url') {
+      const trimmedUrl = url.trim();
+      if (!trimmedUrl) {
+        showToast('Enter a URL');
+        return;
+      }
+      if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+        showToast('URL must start with http:// or https://');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const extraction = await extractTextFromUrl(trimmedUrl, settings.openaiApiKey);
+        if (!extraction.success) {
+          showToast(extraction.error || 'Failed to extract text from URL');
+          setLoading(false);
+          return;
+        }
+        const lines = extraction.text.split('\n');
+        const extractedTitle =
+          lines[0]?.length > 0 && lines[0].length < 200
+            ? lines[0]
+            : new URL(trimmedUrl).hostname;
+        const newId = addItem({
+          type: 'LINK',
+          title: extractedTitle,
+          content: extraction.text,
+        });
+        setLoading(false);
+        router.replace(`/reader?id=${newId}`);
+      } catch {
+        setLoading(false);
+        showToast('Failed to fetch URL content');
+      }
+      return;
+    }
+
+    if (activeTab === 'file') {
+      if (!docFile) {
+        showToast('Select a file first');
+        return;
+      }
+
+      const isDocx = docFile.name.toLowerCase().endsWith('.docx') ||
+        docFile.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      const mimeType = isDocx
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' as const
+        : 'application/pdf' as const;
+      const itemType = isDocx ? 'DOCX' : 'PDF';
+
+      setLoading(true);
+      try {
+        const file = new ExpoFile(docFile.uri);
+        const base64 = await file.base64();
+        const extraction = await extractTextFromDocument(base64, settings.openaiApiKey, mimeType, docFile.name);
+        if (!extraction.success) {
+          showToast(extraction.error || 'Failed to extract text from file');
+          setLoading(false);
+          return;
+        }
+        const newId = addItem({
+          type: itemType,
+          title: docFile.name.replace(/\.(pdf|docx)$/i, ''),
+          content: extraction.text,
+        });
+        setLoading(false);
+        router.replace(`/reader?id=${newId}`);
+      } catch {
+        setLoading(false);
+        showToast('Failed to extract text from file');
+      }
+    }
   };
+
+  const isReady =
+    (activeTab === 'paste' && text.trim().length > 0) ||
+    (activeTab === 'url' && url.trim().length > 0) ||
+    (activeTab === 'file' && docFile !== null);
+
+  const tabs: { key: ImportTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: 'paste', label: 'Paste', icon: 'clipboard-outline' },
+    { key: 'url', label: 'URL', icon: 'link-outline' },
+    { key: 'file', label: 'File', icon: 'document-outline' },
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -87,72 +167,127 @@ export default function ImportScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.heading, { color: colors.text }]}>New Import</Text>
-        <Text style={styles.subtitle}>Select a method to add content.</Text>
+        <Text style={[styles.heading, { color: colors.text }]}>Add Content</Text>
+        <Text style={[styles.subtitle, { color: colors.mutedText }]}>Paste text, enter a URL, or pick a file.</Text>
 
-        {/* PDF Upload */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.uploadZone,
-            { opacity: pressed || loading ? 0.7 : 1 },
-          ]}
-          onPress={handlePdfUpload}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color={colors.text} style={{ marginBottom: 12 }} />
-          ) : (
-            <Ionicons
-              name="cloud-upload-outline"
-              size={28}
-              color="rgba(128,128,128,0.3)"
-              style={{ marginBottom: 12 }}
-            />
-          )}
-          <Text style={[styles.uploadTitle, { color: colors.text }]}>
-            {loading ? 'Processing...' : 'Upload PDF'}
-          </Text>
-          <Text style={styles.uploadHint}>
-            {loading ? 'Extracting text from PDF' : 'Tap to browse'}
-          </Text>
-        </Pressable>
-
-        {/* URL Input */}
-        <View style={[styles.group, { borderColor: colors.cardBorder }]}>
-          <Text style={styles.groupLabel}>Paste Web URL</Text>
-          <TextInput
-            style={[styles.input, { color: colors.text }]}
-            placeholder="https://article-link.com/..."
-            placeholderTextColor="rgba(128,128,128,0.3)"
-            value={url}
-            onChangeText={setUrl}
-            autoCapitalize="none"
-            keyboardType="url"
-          />
-          <Pressable onPress={() => showToast('URL Parser coming soon')}>
-            <Text style={styles.fetchBtn}>FETCH CONTENT</Text>
-          </Pressable>
+        {/* Tabs */}
+        <View style={[styles.tabRow, { borderColor: colors.cardBorder }]}>
+          {tabs.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                style={[
+                  styles.tab,
+                  active && { backgroundColor: colors.cardBackground },
+                ]}
+                onPress={() => setActiveTab(tab.key)}
+                disabled={loading}
+              >
+                <Ionicons
+                  name={tab.icon}
+                  size={18}
+                  color={active ? colors.text : colors.mutedText}
+                  style={{ marginBottom: 4 }}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: active ? colors.text : colors.mutedText },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        {/* Manual Entry */}
-        <View style={[styles.group, { borderColor: colors.cardBorder }]}>
-          <Text style={styles.groupLabel}>Manual Entry</Text>
-          <TextInput
-            style={[styles.input, styles.titleInput, { color: colors.text }]}
-            placeholder="Document Title"
-            placeholderTextColor="rgba(128,128,128,0.3)"
-            value={title}
-            onChangeText={setTitle}
-          />
-          <TextInput
-            style={[styles.input, styles.textArea, { color: colors.text }]}
-            placeholder="Paste your text here..."
-            placeholderTextColor="rgba(128,128,128,0.3)"
-            value={text}
-            onChangeText={setText}
-            multiline
-            textAlignVertical="top"
-          />
+        {/* Tab Content */}
+        <View style={[styles.inputArea, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
+          {activeTab === 'paste' && (
+            <>
+              <TextInput
+                style={[styles.input, styles.titleInput, { color: colors.text, borderBottomColor: colors.cardBorder }]}
+                placeholder="Title (optional)"
+                placeholderTextColor={colors.mutedText}
+                value={title}
+                onChangeText={setTitle}
+              />
+              <TextInput
+                style={[styles.input, styles.textArea, { color: colors.text }]}
+                placeholder="Paste or type your text here..."
+                placeholderTextColor={colors.mutedText}
+                value={text}
+                onChangeText={setText}
+                multiline
+                textAlignVertical="top"
+              />
+            </>
+          )}
+
+          {activeTab === 'url' && (
+            <>
+              <Ionicons
+                name="globe-outline"
+                size={32}
+                color={colors.mutedText}
+                style={{ alignSelf: 'center', marginBottom: 16 }}
+              />
+              <TextInput
+                style={[styles.input, styles.urlInput, { color: colors.text, borderColor: colors.cardBorder }]}
+                placeholder="https://example.com/article"
+                placeholderTextColor={colors.mutedText}
+                value={url}
+                onChangeText={setUrl}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              <Text style={[styles.hint, { color: colors.mutedText }]}>
+                Content will be fetched and extracted when you tap Save & Read.
+              </Text>
+            </>
+          )}
+
+          {activeTab === 'file' && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.fileZone,
+                { opacity: pressed ? 0.7 : 1, borderColor: colors.cardBorder },
+                docFile && styles.fileZoneSelected,
+              ]}
+              onPress={handlePickFile}
+              disabled={loading}
+            >
+              {docFile ? (
+                <>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={32}
+                    color={colors.accent || '#4CAF50'}
+                    style={{ marginBottom: 8 }}
+                  />
+                  <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2}>
+                    {docFile.name}
+                  </Text>
+                  <Text style={[styles.hint, { color: colors.mutedText }]}>Tap to choose a different file</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons
+                    name="cloud-upload-outline"
+                    size={32}
+                    color={colors.mutedText}
+                    style={{ marginBottom: 8 }}
+                  />
+                  <Text style={[styles.filePrompt, { color: colors.text }]}>
+                    Tap to select a PDF or DOCX
+                  </Text>
+                  <Text style={[styles.hint, { color: colors.mutedText }]}>Text will be extracted when you tap Save & Read.</Text>
+                </>
+              )}
+            </Pressable>
+          )}
         </View>
 
         {/* Buttons */}
@@ -161,24 +296,32 @@ export default function ImportScreen() {
             style={({ pressed }) => [
               styles.cancelBtn,
               {
-                borderColor: 'rgba(255,255,255,0.1)',
+                borderColor: colors.cardBorder,
                 transform: [{ scale: pressed ? 0.95 : 1 }],
               },
             ]}
             onPress={() => router.back()}
+            disabled={loading}
           >
-            <Text style={[styles.cancelBtnText, { color: colors.text }]}>
-              Cancel
-            </Text>
+            <Text style={[styles.cancelBtnText, { color: colors.text }]}>Cancel</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [
               styles.saveBtn,
-              { transform: [{ scale: pressed ? 0.95 : 1 }] },
+              {
+                backgroundColor: colors.accent,
+                opacity: isReady && !loading ? 1 : 0.4,
+                transform: [{ scale: pressed ? 0.95 : 1 }],
+              },
             ]}
             onPress={handleSaveAndRead}
+            disabled={!isReady || loading}
           >
-            <Text style={styles.saveBtnText}>Save & Read</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.background} />
+            ) : (
+              <Text style={[styles.saveBtnText, { color: colors.background }]}>Save & Read</Text>
+            )}
           </Pressable>
         </View>
       </ScrollView>
@@ -207,62 +350,71 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(128,128,128,0.4)',
-    marginBottom: 32,
-  },
-  uploadZone: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(128,128,128,0.3)',
-    borderRadius: 16,
-    padding: 40,
-    alignItems: 'center',
-    backgroundColor: 'rgba(128,128,128,0.03)',
     marginBottom: 24,
   },
-  uploadTitle: {
-    fontSize: 14,
-    fontWeight: '500',
+  tabRow: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 20,
   },
-  uploadHint: {
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  tabLabel: {
     fontSize: 12,
-    color: 'rgba(128,128,128,0.3)',
-    marginTop: 4,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
-  group: {
-    backgroundColor: 'rgba(128,128,128,0.05)',
+  inputArea: {
     borderWidth: 1,
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
-  },
-  groupLabel: {
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    color: 'rgba(128,128,128,0.3)',
-    marginBottom: 16,
+    minHeight: 180,
   },
   input: {
     fontSize: 14,
   },
   titleInput: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
     paddingBottom: 8,
     marginBottom: 16,
   },
   textArea: {
-    minHeight: 100,
+    minHeight: 120,
     lineHeight: 22,
   },
-  fetchBtn: {
-    marginTop: 16,
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(128,128,128,0.6)',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+  urlInput: {
+    borderBottomWidth: 1,
+    paddingBottom: 10,
+  },
+  hint: {
+    fontSize: 12,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  fileZone: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+  },
+  fileZoneSelected: {
+    borderStyle: 'solid',
+  },
+  fileName: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  filePrompt: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -286,6 +438,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 100,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   saveBtnText: {
     color: '#000000',

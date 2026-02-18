@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +26,14 @@ export default function LibraryScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { items } = useLibrary();
+  const { items, removeItem } = useLibrary();
+
+  const handleDelete = (id: number, title: string) => {
+    Alert.alert('Delete', `Remove "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => removeItem(id) },
+    ]);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -80,6 +88,7 @@ export default function LibraryScreen() {
               <DocCard
                 item={item}
                 onPress={() => router.push(`/reader?id=${item.id}`)}
+                onLongPress={() => handleDelete(item.id, item.title)}
               />
             </View>
           )}
@@ -92,7 +101,8 @@ export default function LibraryScreen() {
           style={({ pressed }) => [
             styles.addBtn,
             {
-              borderColor: 'rgba(128,128,128,0.2)',
+              backgroundColor: colors.cardBackground,
+              borderColor: colors.cardBorder,
               transform: [{ scale: pressed ? 0.95 : 1 }],
             },
           ]}
@@ -160,7 +170,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(128,128,128,0.1)',
+    backgroundColor: 'transparent',
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',

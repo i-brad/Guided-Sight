@@ -1,20 +1,40 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { SharedValue, runOnJS } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import { SharedValue } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { useState } from 'react';
+
+type Tab = 'focus' | 'fontSize' | 'visibility';
 
 interface ReaderControlsProps {
   spotlightHeight: SharedValue<number>;
 }
 
-export function ReaderControls({ spotlightHeight }: ReaderControlsProps) {
-  const { colors } = useTheme();
-  const [sliderVal, setSliderVal] = useState(spotlightHeight.value);
+const tabs: { key: Tab; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'focus', icon: 'scan-outline' },
+  { key: 'fontSize', icon: 'text-outline' },
+  { key: 'visibility', icon: 'eye-outline' },
+];
 
-  const handleChange = (val: number) => {
+export function ReaderControls({ spotlightHeight }: ReaderControlsProps) {
+  const { colors, settings, setFontSize, setOverlayOpacity } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [heightVal, setHeightVal] = useState(spotlightHeight.value);
+  const [activeTab, setActiveTab] = useState<Tab>('focus');
+
+  const handleHeightChange = (val: number) => {
     spotlightHeight.value = val;
-    setSliderVal(val);
+    setHeightVal(val);
+  };
+
+  const handleFontSizeChange = (val: number) => {
+    setFontSize(Math.round(val));
+  };
+
+  const handleVisibilityChange = (val: number) => {
+    setOverlayOpacity(100 - Math.round(val));
   };
 
   return (
@@ -23,26 +43,92 @@ export function ReaderControls({ spotlightHeight }: ReaderControlsProps) {
         styles.container,
         {
           backgroundColor: `rgba(${colors.overlayBase}, 0.8)`,
-          borderTopColor: 'rgba(128,128,128,0.1)',
+          borderTopColor: colors.cardBorder,
+          paddingBottom: insets.bottom + 12,
         },
       ]}
     >
-      <View style={styles.sliderWrapper}>
-        <View style={styles.labels}>
-          <Text style={styles.label}>Narrow Focus</Text>
-          <Text style={styles.label}>Wide Focus</Text>
-        </View>
-        <Slider
-          minimumValue={40}
-          maximumValue={220}
-          value={sliderVal}
-          onValueChange={handleChange}
-          minimumTrackTintColor="rgba(128,128,128,0.3)"
-          maximumTrackTintColor="rgba(128,128,128,0.2)"
-          thumbTintColor={colors.text}
-          style={styles.slider}
-        />
+      <View style={styles.tabRow}>
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              hitSlop={8}
+              style={[
+                styles.tabBtn,
+                isActive && { backgroundColor: colors.cardBackground },
+              ]}
+            >
+              <Ionicons
+                name={tab.icon}
+                size={18}
+                color={isActive ? colors.text : colors.mutedText}
+              />
+            </Pressable>
+          );
+        })}
       </View>
+
+      {activeTab === 'focus' && (
+        <View style={styles.sliderWrapper}>
+          <View style={styles.labels}>
+            <Text style={[styles.label, { color: colors.mutedText }]}>Narrow Focus</Text>
+            <Text style={[styles.label, { color: colors.mutedText }]}>Wide Focus</Text>
+          </View>
+          <Slider
+            minimumValue={40}
+            maximumValue={220}
+            value={heightVal}
+            onValueChange={handleHeightChange}
+            minimumTrackTintColor={colors.mutedText}
+            maximumTrackTintColor={colors.cardBorder}
+            thumbTintColor={colors.text}
+            style={styles.slider}
+          />
+        </View>
+      )}
+
+      {activeTab === 'fontSize' && (
+        <View style={styles.sliderWrapper}>
+          <View style={styles.labels}>
+            <Text style={[styles.label, { color: colors.mutedText }]}>Smaller Text</Text>
+            <Text style={[styles.label, { color: colors.mutedText }]}>Larger Text</Text>
+          </View>
+          <Slider
+            minimumValue={14}
+            maximumValue={28}
+            step={1}
+            value={settings.fontSize}
+            onValueChange={handleFontSizeChange}
+            minimumTrackTintColor={colors.mutedText}
+            maximumTrackTintColor={colors.cardBorder}
+            thumbTintColor={colors.text}
+            style={styles.slider}
+          />
+        </View>
+      )}
+
+      {activeTab === 'visibility' && (
+        <View style={styles.sliderWrapper}>
+          <View style={styles.labels}>
+            <Text style={[styles.label, { color: colors.mutedText }]}>Less Visible</Text>
+            <Text style={[styles.label, { color: colors.mutedText }]}>More Visible</Text>
+          </View>
+          <Slider
+            minimumValue={0}
+            maximumValue={50}
+            step={1}
+            value={100 - settings.overlayOpacity}
+            onValueChange={handleVisibilityChange}
+            minimumTrackTintColor={colors.mutedText}
+            maximumTrackTintColor={colors.cardBorder}
+            thumbTintColor={colors.text}
+            style={styles.slider}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -57,7 +143,20 @@ const styles = StyleSheet.create({
     zIndex: 1200,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 40,
+    paddingBottom: 12,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  tabBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sliderWrapper: {
     gap: 6,
@@ -68,7 +167,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    color: 'rgba(128,128,128,0.6)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
