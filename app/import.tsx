@@ -6,15 +6,13 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { File as ExpoFile } from 'expo-file-system';
 import { useTheme } from '@/context/ThemeContext';
-import { extractTextFromDocument, extractTextFromUrl } from '@/services/openai';
 import { useLibrary } from '@/context/LibraryContext';
+import { useImport } from '@/context/ImportContext';
 import { HeaderBar } from '@/components/HeaderBar';
 import { Toast } from '@/components/Toast';
 
@@ -24,13 +22,13 @@ export default function ImportScreen() {
   const router = useRouter();
   const { colors, settings } = useTheme();
   const { addItem } = useLibrary();
+  const { startImport, status: importStatus } = useImport();
   const [activeTab, setActiveTab] = useState<ImportTab>('paste');
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
   const [docFile, setDocFile] = useState<{ name: string; uri: string; mimeType: string } | null>(null);
   const [toast, setToast] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const showToast = (msg: string) => setToast(msg);
 
@@ -51,9 +49,7 @@ export default function ImportScreen() {
     }
   };
 
-  const handleSaveAndRead = async () => {
-    if (loading) return;
-
+  const handleSaveAndRead = () => {
     if (activeTab === 'paste') {
       if (!text.trim()) {
         showToast('Enter some text');
@@ -73,6 +69,11 @@ export default function ImportScreen() {
       return;
     }
 
+    if (importStatus === 'importing') {
+      showToast('An import is already running');
+      return;
+    }
+
     if (activeTab === 'url') {
       const trimmedUrl = url.trim();
       if (!trimmedUrl) {
@@ -84,30 +85,8 @@ export default function ImportScreen() {
         return;
       }
 
-      setLoading(true);
-      try {
-        const extraction = await extractTextFromUrl(trimmedUrl, settings.openaiApiKey);
-        if (!extraction.success) {
-          showToast(extraction.error || 'Failed to extract text from URL');
-          setLoading(false);
-          return;
-        }
-        const lines = extraction.text.split('\n');
-        const extractedTitle =
-          lines[0]?.length > 0 && lines[0].length < 200
-            ? lines[0]
-            : new URL(trimmedUrl).hostname;
-        const newId = addItem({
-          type: 'LINK',
-          title: extractedTitle,
-          content: extraction.text,
-        });
-        setLoading(false);
-        router.replace(`/reader?id=${newId}`);
-      } catch {
-        setLoading(false);
-        showToast('Failed to fetch URL content');
-      }
+      startImport({ type: 'url', url: trimmedUrl, apiKey: settings.openaiApiKey });
+      router.back();
       return;
     }
 
@@ -122,29 +101,17 @@ export default function ImportScreen() {
       const mimeType = isDocx
         ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' as const
         : 'application/pdf' as const;
-      const itemType = isDocx ? 'DOCX' : 'PDF';
+      const itemType = isDocx ? 'DOCX' as const : 'PDF' as const;
 
-      setLoading(true);
-      try {
-        const file = new ExpoFile(docFile.uri);
-        const base64 = await file.base64();
-        const extraction = await extractTextFromDocument(base64, settings.openaiApiKey, mimeType, docFile.name);
-        if (!extraction.success) {
-          showToast(extraction.error || 'Failed to extract text from file');
-          setLoading(false);
-          return;
-        }
-        const newId = addItem({
-          type: itemType,
-          title: docFile.name.replace(/\.(pdf|docx)$/i, ''),
-          content: extraction.text,
-        });
-        setLoading(false);
-        router.replace(`/reader?id=${newId}`);
-      } catch {
-        setLoading(false);
-        showToast('Failed to extract text from file');
-      }
+      startImport({
+        type: 'file',
+        fileUri: docFile.uri,
+        fileName: docFile.name,
+        mimeType,
+        itemType,
+        apiKey: settings.openaiApiKey,
+      });
+      router.back();
     }
   };
 
@@ -182,7 +149,6 @@ export default function ImportScreen() {
                   active && { backgroundColor: colors.cardBackground },
                 ]}
                 onPress={() => setActiveTab(tab.key)}
-                disabled={loading}
               >
                 <Ionicons
                   name={tab.icon}
@@ -244,7 +210,7 @@ export default function ImportScreen() {
                 keyboardType="url"
               />
               <Text style={[styles.hint, { color: colors.mutedText }]}>
-                Content will be fetched and extracted when you tap Save & Read.
+                Content will be extracted in the background.
               </Text>
             </>
           )}
@@ -257,7 +223,6 @@ export default function ImportScreen() {
                 docFile && styles.fileZoneSelected,
               ]}
               onPress={handlePickFile}
-              disabled={loading}
             >
               {docFile ? (
                 <>
@@ -283,7 +248,7 @@ export default function ImportScreen() {
                   <Text style={[styles.filePrompt, { color: colors.text }]}>
                     Tap to select a PDF or DOCX
                   </Text>
-                  <Text style={[styles.hint, { color: colors.mutedText }]}>Text will be extracted when you tap Save & Read.</Text>
+                  <Text style={[styles.hint, { color: colors.mutedText }]}>Text will be extracted in the background.</Text>
                 </>
               )}
             </Pressable>
@@ -301,7 +266,6 @@ export default function ImportScreen() {
               },
             ]}
             onPress={() => router.back()}
-            disabled={loading}
           >
             <Text style={[styles.cancelBtnText, { color: colors.text }]}>Cancel</Text>
           </Pressable>
@@ -310,18 +274,14 @@ export default function ImportScreen() {
               styles.saveBtn,
               {
                 backgroundColor: colors.accent,
-                opacity: isReady && !loading ? 1 : 0.4,
+                opacity: isReady ? 1 : 0.4,
                 transform: [{ scale: pressed ? 0.95 : 1 }],
               },
             ]}
             onPress={handleSaveAndRead}
-            disabled={!isReady || loading}
+            disabled={!isReady}
           >
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.background} />
-            ) : (
-              <Text style={[styles.saveBtnText, { color: colors.background }]}>Save & Read</Text>
-            )}
+            <Text style={[styles.saveBtnText, { color: colors.background }]}>Save & Read</Text>
           </Pressable>
         </View>
       </ScrollView>

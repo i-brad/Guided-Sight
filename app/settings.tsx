@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useReadingStats } from '@/context/ReadingStatsContext';
 import { HeaderBar } from '@/components/HeaderBar';
-import { ThemeName } from '@/types';
+import { ThemeName, SpotlightPosition } from '@/types';
 
 function formatTime(hour: number, minute: number) {
   const period = hour >= 12 ? 'PM' : 'AM';
@@ -26,9 +26,15 @@ const themeOptions: { name: ThemeName; label: string; swatch: string }[] = [
   { name: 'amber', label: 'Amber', swatch: '#181208' },
 ];
 
+const spotlightPositionOptions: { value: SpotlightPosition; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'top', label: 'Top', icon: 'arrow-up-outline' },
+  { value: 'center', label: 'Center', icon: 'remove-outline' },
+  { value: 'bottom', label: 'Bottom', icon: 'arrow-down-outline' },
+];
+
 export default function SettingsScreen() {
   const router = useRouter();
-  const { settings, colors, setTheme, setOverlayOpacity, setFocusHeight, setOpenaiApiKey } =
+  const { settings, colors, setTheme, setOverlayOpacity, setFocusHeight, setOpenaiApiKey, setSpotlightPosition } =
     useTheme();
   const [keyVisible, setKeyVisible] = useState(false);
   const { todaySeconds } = useReadingStats();
@@ -138,6 +144,49 @@ export default function SettingsScreen() {
           <Text style={[styles.hint, { color: colors.mutedText }]}>
             The starting height of the focus tunnel.
           </Text>
+        </View>
+
+        {/* Spotlight Position */}
+        <View style={[styles.group, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
+          <Text style={[styles.groupLabel, { color: colors.mutedText }]}>Spotlight Position</Text>
+          <Text style={[styles.hint, { color: colors.mutedText, marginBottom: 16 }]}>
+            Where the focus spotlight starts when you open a text
+          </Text>
+          <View style={styles.positionRow}>
+            {spotlightPositionOptions.map((opt) => {
+              const isActive = settings.spotlightPosition === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  style={[
+                    styles.positionBtn,
+                    {
+                      borderColor: isActive ? colors.text : colors.cardBorder,
+                      backgroundColor: isActive ? colors.cardBackground : 'transparent',
+                    },
+                  ]}
+                  onPress={() => setSpotlightPosition(opt.value)}
+                >
+                  <Ionicons
+                    name={opt.icon}
+                    size={18}
+                    color={isActive ? colors.text : colors.mutedText}
+                  />
+                  <Text
+                    style={[
+                      styles.positionBtnText,
+                      {
+                        color: isActive ? colors.text : colors.mutedText,
+                        fontWeight: isActive ? '600' : '400',
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         {/* Reading Reminder */}
@@ -336,6 +385,23 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: '500',
     fontSize: 14,
+  },
+  positionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  positionBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    gap: 4,
+  },
+  positionBtnText: {
+    fontSize: 9,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   apiKeyInput: {
     fontSize: 14,

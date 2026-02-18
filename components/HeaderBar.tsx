@@ -1,8 +1,8 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme } from "@/context/ThemeContext";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface HeaderBarProps {
   title: string;
@@ -25,7 +25,10 @@ export function HeaderBar({
 
   return (
     <View
-      style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top + 8 },
+      ]}
     >
       {showBack ? (
         <Pressable
@@ -39,25 +42,32 @@ export function HeaderBar({
         <View style={styles.leftBtn} />
       )}
 
-      <Text style={[styles.title, { color: colors.mutedText }]} numberOfLines={1}>
-        {title}
-      </Text>
+      <View style={styles.titleWrap}>
+        <Text
+          style={[styles.title, { color: colors.mutedText }]}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+      </View>
 
       <View style={styles.rightBtns}>
         {showAnalytics && (
-          <Pressable
-            onPress={() => router.push('/analytics')}
-            hitSlop={12}
-          >
-            <Ionicons name="bar-chart-outline" size={18} color={colors.mutedText} />
+          <Pressable onPress={() => router.push("/analytics")} hitSlop={12}>
+            <Ionicons
+              name="bar-chart-outline"
+              size={18}
+              color={colors.mutedText}
+            />
           </Pressable>
         )}
         {showSettings && (
-          <Pressable
-            onPress={() => router.push('/settings')}
-            hitSlop={12}
-          >
-            <Ionicons name="settings-outline" size={20} color={colors.mutedText} />
+          <Pressable onPress={() => router.push("/settings")} hitSlop={12}>
+            <Ionicons
+              name="settings-outline"
+              size={20}
+              color={colors.mutedText}
+            />
           </Pressable>
         )}
       </View>
@@ -67,33 +77,38 @@ export function HeaderBar({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 20,
     paddingBottom: 12,
     zIndex: 100,
   },
   leftBtn: {
     width: 32,
+    alignItems: "flex-start",
+  },
+  titleWrap: {
+    flex: 1,
+    marginHorizontal: 8,
   },
   title: {
-    flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     letterSpacing: 2,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
+    paddingLeft: 2,
   },
   rightBtns: {
     minWidth: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
     gap: 16,
   },
 });

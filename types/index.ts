@@ -25,7 +25,10 @@ export interface Settings {
   onboardingComplete: boolean;
   reminder: ReminderSettings;
   openaiApiKey: string;
+  spotlightPosition: SpotlightPosition;
 }
+
+export type SpotlightPosition = 'top' | 'center' | 'bottom';
 
 export interface LibraryItem {
   id: number;

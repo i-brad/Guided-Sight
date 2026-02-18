@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ThemeName, ThemeColors, Settings, ReminderSettings } from '@/types';
+import { ThemeName, ThemeColors, Settings, ReminderSettings, SpotlightPosition } from '@/types';
 import { themes } from '@/constants/themes';
 
 const STORAGE_KEY = '@guided_sight_settings';
@@ -13,6 +13,7 @@ const defaultSettings: Settings = {
   onboardingComplete: false,
   reminder: { enabled: false, hour: 20, minute: 0 },
   openaiApiKey: '',
+  spotlightPosition: 'top',
 };
 
 interface ThemeContextValue {
@@ -26,6 +27,7 @@ interface ThemeContextValue {
   setOnboardingComplete: (val: boolean) => void;
   setReminder: (val: ReminderSettings) => void;
   setOpenaiApiKey: (key: string) => void;
+  setSpotlightPosition: (val: SpotlightPosition) => void;
   saveSettings: () => Promise<void>;
 }
 
@@ -77,6 +79,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setOpenaiApiKey = (key: string) =>
     setSettings((prev) => ({ ...prev, openaiApiKey: key }));
 
+  const setSpotlightPosition = (val: SpotlightPosition) =>
+    setSettings((prev) => ({ ...prev, spotlightPosition: val }));
+
   // Auto-save whenever settings change after initial load
   useEffect(() => {
     if (isLoaded) {
@@ -97,6 +102,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setOnboardingComplete,
         setReminder,
         setOpenaiApiKey,
+        setSpotlightPosition,
         saveSettings,
       }}
     >

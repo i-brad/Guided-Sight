@@ -29,7 +29,8 @@ export async function extractTextFromDocument(
             content:
               "You are a text extraction assistant. Extract ALL text content from the provided document. " +
               "Preserve the original paragraph structure. Use double newlines between paragraphs. " +
-              "Do not add any commentary, headers, or summaries. Output ONLY the extracted text.",
+              "If the document contains images, include them using markdown format: ![description](image_url) on their own line. " +
+              "Do not add any commentary, headers, or summaries. Output ONLY the extracted text and images.",
           },
           {
             role: "user",
@@ -178,12 +179,16 @@ export async function extractTextFromUrl(
             {
               role: "system",
               content:
-                "You are a text extraction assistant. Given the HTML of a webpage, extract the main article or body content as clean, readable plain text. " +
+                "You are a text extraction assistant. Given the HTML of a webpage, extract the main article or body content as clean, readable text. " +
                 "Remove navigation, ads, footers, sidebars, scripts, and boilerplate. " +
                 "Do NOT summarize, shorten, or omit any of the main body content. Output the COMPLETE article/body text. " +
                 "Preserve paragraph structure using double newlines. " +
+                "IMPORTANT: Preserve any content images that are part of the article body. " +
+                "Output each image on its own line using markdown format: ![alt text](image_url). " +
+                "Only include images that are part of the article content (not icons, ads, tracking pixels, or decorative images). " +
+                "Use the full absolute URL for each image src. " +
                 "If there is an article title, include it as the first line. " +
-                "Output ONLY the extracted text, no commentary.",
+                "Output ONLY the extracted text and content images, no commentary.",
             },
             {
               role: "user",
