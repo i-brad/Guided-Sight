@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { useLibrary } from '@/context/LibraryContext';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -23,56 +24,70 @@ export default function LibraryScreen() {
   const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const router = useRouter();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { items } = useLibrary();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <HeaderBar title="Library" showSettings showAnalytics />
 
-      <FlatList
-        data={items}
-        keyExtractor={(item) => String(item.id)}
-        key={layout}
-        numColumns={layout === 'grid' ? 2 : 1}
-        contentContainerStyle={styles.listContent}
-        columnWrapperStyle={layout === 'grid' ? styles.columnWrapper : undefined}
-        ListHeaderComponent={
-          <View style={styles.headerRow}>
-            <Text style={[styles.heading, { color: colors.text }]}>
-              Your Reads
-            </Text>
-            <View style={styles.toggleRow}>
-              <Pressable onPress={() => setLayout('grid')}>
-                <Ionicons
-                  name="grid"
-                  size={16}
-                  color={colors.text}
-                  style={{ opacity: layout === 'grid' ? 1 : 0.3 }}
-                />
-              </Pressable>
-              <Pressable onPress={() => setLayout('list')}>
-                <Ionicons
-                  name="list"
-                  size={16}
-                  color={colors.text}
-                  style={{ opacity: layout === 'list' ? 1 : 0.3 }}
-                />
-              </Pressable>
+      {items.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="book-outline" size={48} color={colors.text} style={{ opacity: 0.3 }} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            No reads yet
+          </Text>
+          <Text style={[styles.emptyHint, { color: colors.text }]}>
+            TAP + TO ADD YOUR FIRST READ
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => String(item.id)}
+          key={layout}
+          numColumns={layout === 'grid' ? 2 : 1}
+          contentContainerStyle={styles.listContent}
+          columnWrapperStyle={layout === 'grid' ? styles.columnWrapper : undefined}
+          ItemSeparatorComponent={layout === 'list' ? () => <View style={{ height: COLUMN_GAP }} /> : undefined}
+          ListHeaderComponent={
+            <View style={styles.headerRow}>
+              <Text style={[styles.heading, { color: colors.text }]}>
+                Your Reads
+              </Text>
+              <View style={styles.toggleRow}>
+                <Pressable onPress={() => setLayout('grid')}>
+                  <Ionicons
+                    name="grid"
+                    size={16}
+                    color={colors.text}
+                    style={{ opacity: layout === 'grid' ? 1 : 0.3 }}
+                  />
+                </Pressable>
+                <Pressable onPress={() => setLayout('list')}>
+                  <Ionicons
+                    name="list"
+                    size={16}
+                    color={colors.text}
+                    style={{ opacity: layout === 'list' ? 1 : 0.3 }}
+                  />
+                </Pressable>
+              </View>
             </View>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={layout === 'grid' ? { width: CARD_WIDTH } : undefined}>
-            <DocCard
-              item={item}
-              onPress={() => router.push(`/reader?id=${item.id}`)}
-            />
-          </View>
-        )}
-      />
+          }
+          renderItem={({ item }) => (
+            <View style={layout === 'grid' ? { width: CARD_WIDTH } : undefined}>
+              <DocCard
+                item={item}
+                onPress={() => router.push(`/reader?id=${item.id}`)}
+              />
+            </View>
+          )}
+        />
+      )}
 
       {/* Floating Add Button */}
-      <View style={styles.addBtnWrap}>
+      <View style={[styles.addBtnWrap, { bottom: insets.bottom + 16 }]}>
         <Pressable
           style={({ pressed }) => [
             styles.addBtn,
@@ -117,9 +132,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: PADDING,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  emptyHint: {
+    fontSize: 11,
+    fontWeight: '400',
+    letterSpacing: 2,
+    opacity: 0.4,
+  },
   addBtnWrap: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 0,
     left: 0,
     right: 0,
     alignItems: 'center',

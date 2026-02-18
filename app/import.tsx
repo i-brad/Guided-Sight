@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { extractTextFromPDF } from 'expo-pdf-text-extract';
+import { extractText } from 'expo-pdf-text-extract';
 import { useTheme } from '@/context/ThemeContext';
 import { useLibrary } from '@/context/LibraryContext';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -40,8 +40,7 @@ export default function ImportScreen() {
         showToast('Extracting text...');
 
         try {
-          const pages = await extractTextFromPDF(file.uri);
-          const extractedText = pages.join('\n\n');
+          const extractedText = await extractText(file.uri);
 
           if (!extractedText.trim()) {
             showToast('No text found in PDF');

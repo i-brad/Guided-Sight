@@ -43,7 +43,7 @@ export default function RootLayout() {
               options={{ presentation: 'modal', animation: 'fade' }}
             />
           </Stack>
-          <StatusBar style="light" />
+          <StatusBar style="auto" />
           </ReadingStatsProvider>
         </LibraryProvider>
       </ThemeProvider>

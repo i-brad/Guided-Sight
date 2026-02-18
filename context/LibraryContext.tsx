@@ -1,13 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LibraryItem } from '@/types';
-import { sampleLibraryItems } from '@/constants/sampleData';
+import { LibraryItem } from "@/types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-const STORAGE_KEY = '@guided_sight_library';
+const STORAGE_KEY = "@guided_sight_library";
 
 interface LibraryContextValue {
   items: LibraryItem[];
-  addItem: (item: Omit<LibraryItem, 'id'>) => number;
+  addItem: (item: Omit<LibraryItem, "id">) => number;
   removeItem: (id: number) => void;
   getItem: (id: number) => LibraryItem | undefined;
 }
@@ -15,7 +14,7 @@ interface LibraryContextValue {
 const LibraryContext = createContext<LibraryContextValue | null>(null);
 
 export function LibraryProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<LibraryItem[]>(sampleLibraryItems);
+  const [items, setItems] = useState<LibraryItem[]>([]);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((stored) => {
@@ -32,7 +31,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
-  const addItem = (item: Omit<LibraryItem, 'id'>): number => {
+  const addItem = (item: Omit<LibraryItem, "id">): number => {
     const id = Date.now();
     setItems((prev) => [{ ...item, id }, ...prev]);
     return id;
@@ -53,6 +52,6 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
 export function useLibrary() {
   const ctx = useContext(LibraryContext);
-  if (!ctx) throw new Error('useLibrary must be used within LibraryProvider');
+  if (!ctx) throw new Error("useLibrary must be used within LibraryProvider");
   return ctx;
 }
