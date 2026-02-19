@@ -36,3 +36,12 @@ export interface LibraryItem {
   title: string;
   content: string;
 }
+
+export interface Highlight {
+  id: number;
+  documentId: number;
+  paragraphIndex: number;
+  text: string;
+  note?: string;
+  createdAt: number;
+}
